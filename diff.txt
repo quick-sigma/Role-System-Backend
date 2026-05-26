@@ -1,0 +1,555 @@
+diff --git a/db/connection.go b/db/connection.go
+new file mode 100644
+index 0000000..5e1f4d6
+--- /dev/null
++++ b/db/connection.go
+@@ -0,0 +1,31 @@
++package db
++
++import (
++	"fmt"
++
++	"motor-de-rol/backend/domain"
++
++	"github.com/glebarez/sqlite"
++	"gorm.io/gorm"
++)
++
++func Connect(dbPath string) (*gorm.DB, error) {
++	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
++	if err != nil {
++		return nil, fmt.Errorf("failed to connect to database: %w", err)
++	}
++
++	if err := AutoMigrate(db); err != nil {
++		return nil, fmt.Errorf("failed to migrate database: %w", err)
++	}
++
++	return db, nil
++}
++
++func AutoMigrate(db *gorm.DB) error {
++	return db.AutoMigrate(
++		&domain.Character{},
++		&domain.Race{},
++		&domain.CharacterStat{},
++	)
++}
+diff --git a/domain/character.go b/domain/character.go
+new file mode 100644
+index 0000000..bf14ae6
+--- /dev/null
++++ b/domain/character.go
+@@ -0,0 +1,46 @@
++package domain
++
++import "context"
++
++type Repository[T any] interface {
++	Create(ctx context.Context, entity *T) error
++	GetByID(ctx context.Context, id uint) (*T, error)
++	Update(ctx context.Context, entity *T) error
++	Delete(ctx context.Context, id uint) error
++	List(ctx context.Context) ([]T, error)
++}
++
++type Character struct {
++	ID     uint   `json:"id"`
++	Name   string `json:"name"`
++	Age    int    `json:"age"`
++	RaceID uint   `json:"race_id"`
++}
++
++type CharacterProfile struct {
++	ID              uint   `json:"id"`
++	Name            string `json:"name"`
++	Age             int    `json:"age"`
++	RaceName        string `json:"race_name"`
++	Strength        int    `json:"strength"`
++	Dexterity       int    `json:"dexterity"`
++	Intelligence    int    `json:"intelligence"`
++}
++
++type CharacterRepository interface {
++	Repository[Character]
++	GetProfile(ctx context.Context, id uint) (*CharacterProfile, error)
++}
++
++type Race struct {
++	ID   uint   `json:"id"`
++	Name string `json:"name"`
++}
++
++type CharacterStat struct {
++	ID           uint `json:"id"`
++	CharacterID  uint `json:"character_id"`
++	Strength     int  `json:"strength"`
++	Dexterity    int  `json:"dexterity"`
++	Intelligence int  `json:"intelligence"`
++}
+diff --git a/go.mod b/go.mod
+index 58207f6..99b8752 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,3 +1,26 @@
+ module motor-de-rol/backend
+ 
+-go 1.24.3
++go 1.25.0
++
++require (
++	github.com/danielgtaylor/huma/v2 v2.38.0
++	github.com/glebarez/sqlite v1.11.0
++	github.com/go-chi/chi/v5 v5.3.0
++	gorm.io/gorm v1.31.1
++)
++
++require (
++	github.com/dustin/go-humanize v1.0.1 // indirect
++	github.com/glebarez/go-sqlite v1.21.2 // indirect
++	github.com/google/uuid v1.6.0 // indirect
++	github.com/jinzhu/inflection v1.0.0 // indirect
++	github.com/jinzhu/now v1.1.5 // indirect
++	github.com/mattn/go-isatty v0.0.21 // indirect
++	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
++	golang.org/x/sys v0.43.0 // indirect
++	golang.org/x/text v0.36.0 // indirect
++	modernc.org/libc v1.22.5 // indirect
++	modernc.org/mathutil v1.5.0 // indirect
++	modernc.org/memory v1.5.0 // indirect
++	modernc.org/sqlite v1.23.1 // indirect
++)
+diff --git a/go.sum b/go.sum
+new file mode 100644
+index 0000000..2b5dee2
+--- /dev/null
++++ b/go.sum
+@@ -0,0 +1,49 @@
++github.com/danielgtaylor/huma/v2 v2.38.0 h1:fb0WZCatnaiHLphMQDDWDjygNxfMkX/ENma3QsRl7vY=
++github.com/danielgtaylor/huma/v2 v2.38.0/go.mod h1:k9hwjlgWFt1t2jsmQGlsgXAG2FBTZa4kkjV581qAtfo=
++github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
++github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
++github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
++github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
++github.com/fxamacker/cbor/v2 v2.9.1 h1:2rWm8B193Ll4VdjsJY28jxs70IdDsHRWgQYAI80+rMQ=
++github.com/fxamacker/cbor/v2 v2.9.1/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
++github.com/glebarez/go-sqlite v1.21.2 h1:3a6LFC4sKahUunAmynQKLZceZCOzUthkRkEAl9gAXWo=
++github.com/glebarez/go-sqlite v1.21.2/go.mod h1:sfxdZyhQjTM2Wry3gVYWaW072Ri1WMdWJi0k6+3382k=
++github.com/glebarez/sqlite v1.11.0 h1:wSG0irqzP6VurnMEpFGer5Li19RpIRi2qvQz++w0GMw=
++github.com/glebarez/sqlite v1.11.0/go.mod h1:h8/o8j5wiAsqSPoWELDUdJXhjAhsVliSn7bWZjOhrgQ=
++github.com/go-chi/chi/v5 v5.3.0 h1:halUjDxhshgXHMrao5bB8eNBXo/rnzwr8m5m36glehM=
++github.com/go-chi/chi/v5 v5.3.0/go.mod h1:R+tYY2hNuVUUjxoPtqUdgBqevM9s9njzkTLutVsOCto=
++github.com/google/pprof v0.0.0-20221118152302-e6195bd50e26 h1:Xim43kblpZXfIBQsbuBVKCudVG457BR2GZFIz3uw3hQ=
++github.com/google/pprof v0.0.0-20221118152302-e6195bd50e26/go.mod h1:dDKJzRmX4S37WGHujM7tX//fmj1uioxKzKxz3lo4HJo=
++github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
++github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
++github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=
++github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
++github.com/jinzhu/now v1.1.5 h1:/o9tlHleP7gOFmsnYNz3RGnqzefHA47wQpKrrdTIwXQ=
++github.com/jinzhu/now v1.1.5/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/z8=
++github.com/mattn/go-isatty v0.0.21 h1:xYae+lCNBP7QuW4PUnNG61ffM4hVIfm+zUzDuSzYLGs=
++github.com/mattn/go-isatty v0.0.21/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
++github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
++github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
++github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
++github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
++github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
++github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
++github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
++github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
++github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
++golang.org/x/sys v0.43.0 h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=
++golang.org/x/sys v0.43.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
++golang.org/x/text v0.36.0 h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=
++golang.org/x/text v0.36.0/go.mod h1:NIdBknypM8iqVmPiuco0Dh6P5Jcdk8lJL0CUebqK164=
++gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
++gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
++gorm.io/gorm v1.31.1 h1:7CA8FTFz/gRfgqgpeKIBcervUn3xSyPUmr6B2WXJ7kg=
++gorm.io/gorm v1.31.1/go.mod h1:XyQVbO2k6YkOis7C2437jSit3SsDK72s7n7rsSHd+Gs=
++modernc.org/libc v1.22.5 h1:91BNch/e5B0uPbJFgqbxXuOnxBQjlS//icfQEGmvyjE=
++modernc.org/libc v1.22.5/go.mod h1:jj+Z7dTNX8fBScMVNRAYZ/jF91K8fdT2hYMThc3YjBY=
++modernc.org/mathutil v1.5.0 h1:rV0Ko/6SfM+8G+yKiyI830l3Wuz1zRutdslNoQ0kfiQ=
++modernc.org/mathutil v1.5.0/go.mod h1:mZW8CKdRPY1v87qxC/wUdX5O1qDzXMP5TH3wjfpga6E=
++modernc.org/memory v1.5.0 h1:N+/8c5rE6EqugZwHii4IFsaJ7MUhoWX07J5tC/iI5Ds=
++modernc.org/memory v1.5.0/go.mod h1:PkUhL0Mugw21sHPeskwZW4D6VscE/GQJOnIpCnW6pSU=
++modernc.org/sqlite v1.23.1 h1:nrSBg4aRQQwq59JpvGEQ15tNxoO5pX/kUjcRNwSAGQM=
++modernc.org/sqlite v1.23.1/go.mod h1:OrDj17Mggn6MhE+iPbBNf7RGKODDE9NFT0f3EwDzJqk=
+diff --git a/main.go b/main.go
+new file mode 100644
+index 0000000..99de076
+--- /dev/null
++++ b/main.go
+@@ -0,0 +1,64 @@
++package main
++
++import (
++	"fmt"
++	"log"
++	"net/http"
++
++	"motor-de-rol/backend/db"
++	"motor-de-rol/backend/repository"
++	"motor-de-rol/backend/transport"
++
++	"github.com/danielgtaylor/huma/v2"
++	"github.com/danielgtaylor/huma/v2/adapters/humachi"
++	"github.com/go-chi/chi/v5"
++	"github.com/go-chi/chi/v5/middleware"
++)
++
++const (
++	host = "localhost"
++	port = 8080
++)
++
++func main() {
++	database, err := db.Connect("motor-de-rol.db")
++	if err != nil {
++		log.Fatalf("Failed to initialize database: %v", err)
++	}
++
++	characterRepo := repository.NewSQLiteCharacterRepo(database)
++
++	router := chi.NewRouter()
++	router.Use(middleware.Logger)
++	router.Use(middleware.Recoverer)
++
++	api := humachi.New(router, huma.DefaultConfig("Motor de Rol API", "1.0.0"))
++
++	characterController := transport.NewCharacterController(characterRepo)
++	characterController.Register(api)
++
++	printBanner()
++
++	addr := fmt.Sprintf("%s:%d", host, port)
++	log.Printf("Server starting on http://%s", addr)
++	log.Printf("API Documentation: http://%s/docs", addr)
++	log.Printf("OpenAPI JSON: http://%s/openapi.json", addr)
++
++	if err := http.ListenAndServe(addr, router); err != nil {
++		log.Fatalf("Server failed to start: %v", err)
++	}
++}
++
++func printBanner() {
++	fmt.Println(`
++╔══════════════════════════════════════════════════════════╗
++║                                                          ║
++║           ⚔️  MOTOR DE ROL - API SERVER  ⚔️              ║
++║                                                          ║
++║   REST API:    http://localhost:8080                     ║
++║   Docs:        http://localhost:8080/docs                ║
++║   OpenAPI:     http://localhost:8080/openapi.json        ║
++║                                                          ║
++╚══════════════════════════════════════════════════════════╝
++`)
++}
+diff --git a/motor-de-rol b/motor-de-rol
+new file mode 100755
+index 0000000..7197f99
+Binary files /dev/null and b/motor-de-rol differ
+diff --git a/repository/sqlite_character.go b/repository/sqlite_character.go
+new file mode 100644
+index 0000000..5507867
+--- /dev/null
++++ b/repository/sqlite_character.go
+@@ -0,0 +1,71 @@
++package repository
++
++import (
++	"context"
++	"fmt"
++
++	"motor-de-rol/backend/domain"
++
++	"gorm.io/gorm"
++)
++
++type SQLiteCharacterRepo struct {
++	*SQLiteRepository[domain.Character]
++	db *gorm.DB
++}
++
++func NewSQLiteCharacterRepo(db *gorm.DB) *SQLiteCharacterRepo {
++	return &SQLiteCharacterRepo{
++		SQLiteRepository: NewSQLiteRepository[domain.Character](db),
++		db:               db,
++	}
++}
++
++func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.CharacterProfile, error) {
++	query := `
++		SELECT 
++			c.id, c.name, c.age,
++			r.name as race_name,
++			s.strength, s.dexterity, s.intelligence
++		FROM characters c
++		LEFT JOIN character_stats s ON c.id = s.character_id
++		LEFT JOIN races r ON c.race_id = r.id
++		WHERE c.id = ?
++	`
++
++	var profile domain.CharacterProfile
++	row := r.db.WithContext(ctx).Raw(query, id).Row()
++
++	var raceName *string
++	var strength, dexterity, intelligence *int
++	err := row.Scan(
++		&profile.ID,
++		&profile.Name,
++		&profile.Age,
++		&raceName,
++		&strength,
++		&dexterity,
++		&intelligence,
++	)
++	if err != nil {
++		if err == gorm.ErrRecordNotFound {
++			return nil, fmt.Errorf("character not found with id %d", id)
++		}
++		return nil, fmt.Errorf("failed to get character profile: %w", err)
++	}
++
++	if raceName != nil {
++		profile.RaceName = *raceName
++	}
++	if strength != nil {
++		profile.Strength = *strength
++	}
++	if dexterity != nil {
++		profile.Dexterity = *dexterity
++	}
++	if intelligence != nil {
++		profile.Intelligence = *intelligence
++	}
++
++	return &profile, nil
++}
+diff --git a/repository/sqlite_generic.go b/repository/sqlite_generic.go
+new file mode 100644
+index 0000000..dcc559d
+--- /dev/null
++++ b/repository/sqlite_generic.go
+@@ -0,0 +1,47 @@
++package repository
++
++import (
++	"context"
++	"fmt"
++
++	"gorm.io/gorm"
++)
++
++type SQLiteRepository[T any] struct {
++	db *gorm.DB
++}
++
++func NewSQLiteRepository[T any](db *gorm.DB) *SQLiteRepository[T] {
++	return &SQLiteRepository[T]{db: db}
++}
++
++func (r *SQLiteRepository[T]) Create(ctx context.Context, entity *T) error {
++	return r.db.WithContext(ctx).Create(entity).Error
++}
++
++func (r *SQLiteRepository[T]) GetByID(ctx context.Context, id uint) (*T, error) {
++	var entity T
++	result := r.db.WithContext(ctx).First(&entity, id)
++	if result.Error != nil {
++		if result.Error == gorm.ErrRecordNotFound {
++			return nil, fmt.Errorf("entity not found with id %d", id)
++		}
++		return nil, result.Error
++	}
++	return &entity, nil
++}
++
++func (r *SQLiteRepository[T]) Update(ctx context.Context, entity *T) error {
++	return r.db.WithContext(ctx).Save(entity).Error
++}
++
++func (r *SQLiteRepository[T]) Delete(ctx context.Context, id uint) error {
++	var entity T
++	return r.db.WithContext(ctx).Delete(&entity, id).Error
++}
++
++func (r *SQLiteRepository[T]) List(ctx context.Context) ([]T, error) {
++	var entities []T
++	result := r.db.WithContext(ctx).Find(&entities)
++	return entities, result.Error
++}
+diff --git a/transport/character_controller.go b/transport/character_controller.go
+new file mode 100644
+index 0000000..379ca4a
+--- /dev/null
++++ b/transport/character_controller.go
+@@ -0,0 +1,169 @@
++package transport
++
++import (
++	"context"
++	"net/http"
++
++	"motor-de-rol/backend/domain"
++
++	"github.com/danielgtaylor/huma/v2"
++)
++
++type CharacterController struct {
++	repo domain.CharacterRepository
++}
++
++func NewCharacterController(repo domain.CharacterRepository) *CharacterController {
++	return &CharacterController{repo: repo}
++}
++
++func (c *CharacterController) Register(api huma.API) {
++	huma.Register(api, huma.Operation{
++		OperationID: "CreateCharacter",
++		Method:      http.MethodPost,
++		Path:        "/characters",
++		Summary:     "Create a new character",
++	}, c.Create)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "GetCharacter",
++		Method:      http.MethodGet,
++		Path:        "/characters/{id}",
++		Summary:     "Get character by ID",
++	}, c.GetByID)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "UpdateCharacter",
++		Method:      http.MethodPut,
++		Path:        "/characters/{id}",
++		Summary:     "Update character",
++	}, c.Update)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "DeleteCharacter",
++		Method:      http.MethodDelete,
++		Path:        "/characters/{id}",
++		Summary:     "Delete character",
++	}, c.Delete)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "ListCharacters",
++		Method:      http.MethodGet,
++		Path:        "/characters",
++		Summary:     "List all characters",
++	}, c.List)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "GetCharacterProfile",
++		Method:      http.MethodGet,
++		Path:        "/characters/{id}/profile",
++		Summary:     "Get character full profile with stats and race",
++	}, c.GetProfile)
++}
++
++type CreateCharacterInput struct {
++	Body struct {
++		Name   string `json:"name" minLength:"1" maxLength:"100"`
++		Age    int    `json:"age" minimum:"1" maximum:"9999"`
++		RaceID uint   `json:"race_id"`
++	}
++}
++
++func (c *CharacterController) Create(ctx context.Context, input *CreateCharacterInput) (*struct {
++	Body *domain.Character
++}, error) {
++	character := &domain.Character{
++		Name:   input.Body.Name,
++		Age:    input.Body.Age,
++		RaceID: input.Body.RaceID,
++	}
++
++	if err := c.repo.Create(ctx, character); err != nil {
++		return nil, huma.Error500InternalServerError("failed to create character", err)
++	}
++
++	return &struct {
++		Body *domain.Character
++	}{Body: character}, nil
++}
++
++type CharacterIDInput struct {
++	ID uint `path:"id" minimum:"1"`
++}
++
++func (c *CharacterController) GetByID(ctx context.Context, input *CharacterIDInput) (*struct {
++	Body *domain.Character
++}, error) {
++	character, err := c.repo.GetByID(ctx, input.ID)
++	if err != nil {
++		return nil, huma.Error404NotFound("character not found", err)
++	}
++
++	return &struct {
++		Body *domain.Character
++	}{Body: character}, nil
++}
++
++type UpdateCharacterInput struct {
++	ID uint `path:"id" minimum:"1"`
++	Body struct {
++		Name   string `json:"name" minLength:"1" maxLength:"100"`
++		Age    int    `json:"age" minimum:"1" maximum:"9999"`
++		RaceID uint   `json:"race_id"`
++	}
++}
++
++func (c *CharacterController) Update(ctx context.Context, input *UpdateCharacterInput) (*struct {
++	Body *domain.Character
++}, error) {
++	character, err := c.repo.GetByID(ctx, input.ID)
++	if err != nil {
++		return nil, huma.Error404NotFound("character not found", err)
++	}
++
++	character.Name = input.Body.Name
++	character.Age = input.Body.Age
++	character.RaceID = input.Body.RaceID
++
++	if err := c.repo.Update(ctx, character); err != nil {
++		return nil, huma.Error500InternalServerError("failed to update character", err)
++	}
++
++	return &struct {
++		Body *domain.Character
++	}{Body: character}, nil
++}
++
++func (c *CharacterController) Delete(ctx context.Context, input *CharacterIDInput) (*struct{}, error) {
++	if err := c.repo.Delete(ctx, input.ID); err != nil {
++		return nil, huma.Error500InternalServerError("failed to delete character", err)
++	}
++
++	return nil, nil
++}
++
++func (c *CharacterController) List(ctx context.Context, input *struct{}) (*struct {
++	Body []domain.Character
++}, error) {
++	characters, err := c.repo.List(ctx)
++	if err != nil {
++		return nil, huma.Error500InternalServerError("failed to list characters", err)
++	}
++
++	return &struct {
++		Body []domain.Character
++	}{Body: characters}, nil
++}
++
++func (c *CharacterController) GetProfile(ctx context.Context, input *CharacterIDInput) (*struct {
++	Body *domain.CharacterProfile
++}, error) {
++	profile, err := c.repo.GetProfile(ctx, input.ID)
++	if err != nil {
++		return nil, huma.Error404NotFound("character profile not found", err)
++	}
++
++	return &struct {
++		Body *domain.CharacterProfile
++	}{Body: profile}, nil
++}
