@@ -1,736 +1,733 @@
-diff --git a/.gitignore b/.gitignore
-new file mode 100644
-index 0000000..0b21fca
---- /dev/null
-+++ b/.gitignore
-@@ -0,0 +1,31 @@
-+# Binarios
-+motor-de-rol
-+*.exe
-+*.exe~
-+*.dll
-+*.so
-+*.dylib
-+
-+# Bases de datos SQLite
-+*.db
-+*.db-journal
-+*.db-wal
-+*.db-shm
-+
-+# Go
-+vendor/
-+go.sum
-+
-+# IDE
-+.vscode/
-+.idea/
-+*.swp
-+*.swo
-+*~
-+
-+# OS
-+.DS_Store
-+Thumbs.db
-+
-+# Logs
-+*.log
 diff --git a/db/connection.go b/db/connection.go
-index 5e1f4d6..a5ab835 100644
+index a5ab835..5b65d72 100644
 --- a/db/connection.go
 +++ b/db/connection.go
-@@ -15,6 +15,21 @@ func Connect(dbPath string) (*gorm.DB, error) {
- 		return nil, fmt.Errorf("failed to connect to database: %w", err)
- 	}
+@@ -41,6 +41,13 @@ func AutoMigrate(db *gorm.DB) error {
+ 	return db.AutoMigrate(
+ 		&domain.Character{},
+ 		&domain.Race{},
++		&domain.Stat{},
+ 		&domain.CharacterStat{},
++		&domain.CharacterFull{},
++		&domain.CharacterAvatar{},
++		&domain.CharacterAttribute{},
++		&domain.CharacterSkill{},
++		&domain.CharacterPsychology{},
++		&domain.CharacterOrganization{},
+ 	)
+ }
+diff --git a/domain/character.go b/domain/character.go
+index bf14ae6..c27ae91 100644
+--- a/domain/character.go
++++ b/domain/character.go
+@@ -17,14 +17,24 @@ type Character struct {
+ 	RaceID uint   `json:"race_id"`
+ }
  
-+	sqlDB, err := db.DB()
-+	if err != nil {
-+		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
-+	}
++type Stat struct {
++	ID   uint   `json:"id"`
++	Name string `json:"name"`
++}
 +
-+	sqlDB.SetMaxOpenConns(1)
++type CharacterStat struct {
++	ID          uint `json:"id"`
++	CharacterID uint `json:"character_id"`
++	StatID      uint `json:"stat_id"`
++	Value       int  `json:"value"`
++}
 +
-+	if _, err := sqlDB.Exec("PRAGMA foreign_keys = ON;"); err != nil {
-+		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
-+	}
-+
-+	if _, err := sqlDB.Exec("PRAGMA journal_mode = WAL;"); err != nil {
-+		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
-+	}
-+
- 	if err := AutoMigrate(db); err != nil {
- 		return nil, fmt.Errorf("failed to migrate database: %w", err)
- 	}
-diff --git a/diff.txt b/diff.txt
+ type CharacterProfile struct {
+-	ID              uint   `json:"id"`
+-	Name            string `json:"name"`
+-	Age             int    `json:"age"`
+-	RaceName        string `json:"race_name"`
+-	Strength        int    `json:"strength"`
+-	Dexterity       int    `json:"dexterity"`
+-	Intelligence    int    `json:"intelligence"`
++	ID       uint            `json:"id"`
++	Name     string          `json:"name"`
++	Age      int             `json:"age"`
++	RaceName string          `json:"race_name"`
++	Stats    map[string]int  `json:"stats"`
+ }
+ 
+ type CharacterRepository interface {
+@@ -36,11 +46,3 @@ type Race struct {
+ 	ID   uint   `json:"id"`
+ 	Name string `json:"name"`
+ }
+-
+-type CharacterStat struct {
+-	ID           uint `json:"id"`
+-	CharacterID  uint `json:"character_id"`
+-	Strength     int  `json:"strength"`
+-	Dexterity    int  `json:"dexterity"`
+-	Intelligence int  `json:"intelligence"`
+-}
+diff --git a/domain/character_identity.go b/domain/character_identity.go
 new file mode 100644
-index 0000000..e0caa8e
+index 0000000..ef681b5
 --- /dev/null
-+++ b/diff.txt
-@@ -0,0 +1,555 @@
-+diff --git a/db/connection.go b/db/connection.go
-+new file mode 100644
-+index 0000000..5e1f4d6
-+--- /dev/null
-++++ b/db/connection.go
-+@@ -0,0 +1,31 @@
-++package db
-++
-++import (
-++	"fmt"
-++
-++	"motor-de-rol/backend/domain"
-++
-++	"github.com/glebarez/sqlite"
-++	"gorm.io/gorm"
-++)
-++
-++func Connect(dbPath string) (*gorm.DB, error) {
-++	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
-++	if err != nil {
-++		return nil, fmt.Errorf("failed to connect to database: %w", err)
-++	}
-++
-++	if err := AutoMigrate(db); err != nil {
-++		return nil, fmt.Errorf("failed to migrate database: %w", err)
-++	}
-++
-++	return db, nil
-++}
-++
-++func AutoMigrate(db *gorm.DB) error {
-++	return db.AutoMigrate(
-++		&domain.Character{},
-++		&domain.Race{},
-++		&domain.CharacterStat{},
-++	)
-++}
-+diff --git a/domain/character.go b/domain/character.go
-+new file mode 100644
-+index 0000000..bf14ae6
-+--- /dev/null
-++++ b/domain/character.go
-+@@ -0,0 +1,46 @@
-++package domain
-++
-++import "context"
-++
-++type Repository[T any] interface {
-++	Create(ctx context.Context, entity *T) error
-++	GetByID(ctx context.Context, id uint) (*T, error)
-++	Update(ctx context.Context, entity *T) error
-++	Delete(ctx context.Context, id uint) error
-++	List(ctx context.Context) ([]T, error)
-++}
-++
-++type Character struct {
-++	ID     uint   `json:"id"`
-++	Name   string `json:"name"`
-++	Age    int    `json:"age"`
-++	RaceID uint   `json:"race_id"`
-++}
-++
-++type CharacterProfile struct {
-++	ID              uint   `json:"id"`
-++	Name            string `json:"name"`
-++	Age             int    `json:"age"`
-++	RaceName        string `json:"race_name"`
-++	Strength        int    `json:"strength"`
-++	Dexterity       int    `json:"dexterity"`
-++	Intelligence    int    `json:"intelligence"`
-++}
-++
-++type CharacterRepository interface {
-++	Repository[Character]
-++	GetProfile(ctx context.Context, id uint) (*CharacterProfile, error)
-++}
-++
-++type Race struct {
-++	ID   uint   `json:"id"`
-++	Name string `json:"name"`
-++}
-++
-++type CharacterStat struct {
-++	ID           uint `json:"id"`
-++	CharacterID  uint `json:"character_id"`
-++	Strength     int  `json:"strength"`
-++	Dexterity    int  `json:"dexterity"`
-++	Intelligence int  `json:"intelligence"`
-++}
-+diff --git a/go.mod b/go.mod
-+index 58207f6..99b8752 100644
-+--- a/go.mod
-++++ b/go.mod
-+@@ -1,3 +1,26 @@
-+ module motor-de-rol/backend
-+ 
-+-go 1.24.3
-++go 1.25.0
-++
-++require (
-++	github.com/danielgtaylor/huma/v2 v2.38.0
-++	github.com/glebarez/sqlite v1.11.0
-++	github.com/go-chi/chi/v5 v5.3.0
-++	gorm.io/gorm v1.31.1
-++)
-++
-++require (
-++	github.com/dustin/go-humanize v1.0.1 // indirect
-++	github.com/glebarez/go-sqlite v1.21.2 // indirect
-++	github.com/google/uuid v1.6.0 // indirect
-++	github.com/jinzhu/inflection v1.0.0 // indirect
-++	github.com/jinzhu/now v1.1.5 // indirect
-++	github.com/mattn/go-isatty v0.0.21 // indirect
-++	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-++	golang.org/x/sys v0.43.0 // indirect
-++	golang.org/x/text v0.36.0 // indirect
-++	modernc.org/libc v1.22.5 // indirect
-++	modernc.org/mathutil v1.5.0 // indirect
-++	modernc.org/memory v1.5.0 // indirect
-++	modernc.org/sqlite v1.23.1 // indirect
-++)
-+diff --git a/go.sum b/go.sum
-+new file mode 100644
-+index 0000000..2b5dee2
-+--- /dev/null
-++++ b/go.sum
-+@@ -0,0 +1,49 @@
-++github.com/danielgtaylor/huma/v2 v2.38.0 h1:fb0WZCatnaiHLphMQDDWDjygNxfMkX/ENma3QsRl7vY=
-++github.com/danielgtaylor/huma/v2 v2.38.0/go.mod h1:k9hwjlgWFt1t2jsmQGlsgXAG2FBTZa4kkjV581qAtfo=
-++github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
-++github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-++github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
-++github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
-++github.com/fxamacker/cbor/v2 v2.9.1 h1:2rWm8B193Ll4VdjsJY28jxs70IdDsHRWgQYAI80+rMQ=
-++github.com/fxamacker/cbor/v2 v2.9.1/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
-++github.com/glebarez/go-sqlite v1.21.2 h1:3a6LFC4sKahUunAmynQKLZceZCOzUthkRkEAl9gAXWo=
-++github.com/glebarez/go-sqlite v1.21.2/go.mod h1:sfxdZyhQjTM2Wry3gVYWaW072Ri1WMdWJi0k6+3382k=
-++github.com/glebarez/sqlite v1.11.0 h1:wSG0irqzP6VurnMEpFGer5Li19RpIRi2qvQz++w0GMw=
-++github.com/glebarez/sqlite v1.11.0/go.mod h1:h8/o8j5wiAsqSPoWELDUdJXhjAhsVliSn7bWZjOhrgQ=
-++github.com/go-chi/chi/v5 v5.3.0 h1:halUjDxhshgXHMrao5bB8eNBXo/rnzwr8m5m36glehM=
-++github.com/go-chi/chi/v5 v5.3.0/go.mod h1:R+tYY2hNuVUUjxoPtqUdgBqevM9s9njzkTLutVsOCto=
-++github.com/google/pprof v0.0.0-20221118152302-e6195bd50e26 h1:Xim43kblpZXfIBQsbuBVKCudVG457BR2GZFIz3uw3hQ=
-++github.com/google/pprof v0.0.0-20221118152302-e6195bd50e26/go.mod h1:dDKJzRmX4S37WGHujM7tX//fmj1uioxKzKxz3lo4HJo=
-++github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
-++github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-++github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=
-++github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
-++github.com/jinzhu/now v1.1.5 h1:/o9tlHleP7gOFmsnYNz3RGnqzefHA47wQpKrrdTIwXQ=
-++github.com/jinzhu/now v1.1.5/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/z8=
-++github.com/mattn/go-isatty v0.0.21 h1:xYae+lCNBP7QuW4PUnNG61ffM4hVIfm+zUzDuSzYLGs=
-++github.com/mattn/go-isatty v0.0.21/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
-++github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
-++github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-++github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
-++github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
-++github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
-++github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
-++github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-++github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
-++github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
-++golang.org/x/sys v0.43.0 h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=
-++golang.org/x/sys v0.43.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
-++golang.org/x/text v0.36.0 h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=
-++golang.org/x/text v0.36.0/go.mod h1:NIdBknypM8iqVmPiuco0Dh6P5Jcdk8lJL0CUebqK164=
-++gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
-++gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-++gorm.io/gorm v1.31.1 h1:7CA8FTFz/gRfgqgpeKIBcervUn3xSyPUmr6B2WXJ7kg=
-++gorm.io/gorm v1.31.1/go.mod h1:XyQVbO2k6YkOis7C2437jSit3SsDK72s7n7rsSHd+Gs=
-++modernc.org/libc v1.22.5 h1:91BNch/e5B0uPbJFgqbxXuOnxBQjlS//icfQEGmvyjE=
-++modernc.org/libc v1.22.5/go.mod h1:jj+Z7dTNX8fBScMVNRAYZ/jF91K8fdT2hYMThc3YjBY=
-++modernc.org/mathutil v1.5.0 h1:rV0Ko/6SfM+8G+yKiyI830l3Wuz1zRutdslNoQ0kfiQ=
-++modernc.org/mathutil v1.5.0/go.mod h1:mZW8CKdRPY1v87qxC/wUdX5O1qDzXMP5TH3wjfpga6E=
-++modernc.org/memory v1.5.0 h1:N+/8c5rE6EqugZwHii4IFsaJ7MUhoWX07J5tC/iI5Ds=
-++modernc.org/memory v1.5.0/go.mod h1:PkUhL0Mugw21sHPeskwZW4D6VscE/GQJOnIpCnW6pSU=
-++modernc.org/sqlite v1.23.1 h1:nrSBg4aRQQwq59JpvGEQ15tNxoO5pX/kUjcRNwSAGQM=
-++modernc.org/sqlite v1.23.1/go.mod h1:OrDj17Mggn6MhE+iPbBNf7RGKODDE9NFT0f3EwDzJqk=
-+diff --git a/main.go b/main.go
-+new file mode 100644
-+index 0000000..99de076
-+--- /dev/null
-++++ b/main.go
-+@@ -0,0 +1,64 @@
-++package main
-++
-++import (
-++	"fmt"
-++	"log"
-++	"net/http"
-++
-++	"motor-de-rol/backend/db"
-++	"motor-de-rol/backend/repository"
-++	"motor-de-rol/backend/transport"
-++
-++	"github.com/danielgtaylor/huma/v2"
-++	"github.com/danielgtaylor/huma/v2/adapters/humachi"
-++	"github.com/go-chi/chi/v5"
-++	"github.com/go-chi/chi/v5/middleware"
-++)
-++
-++const (
-++	host = "localhost"
-++	port = 8080
-++)
-++
-++func main() {
-++	database, err := db.Connect("motor-de-rol.db")
-++	if err != nil {
-++		log.Fatalf("Failed to initialize database: %v", err)
-++	}
-++
-++	characterRepo := repository.NewSQLiteCharacterRepo(database)
-++
-++	router := chi.NewRouter()
-++	router.Use(middleware.Logger)
-++	router.Use(middleware.Recoverer)
-++
-++	api := humachi.New(router, huma.DefaultConfig("Motor de Rol API", "1.0.0"))
-++
-++	characterController := transport.NewCharacterController(characterRepo)
-++	characterController.Register(api)
-++
-++	printBanner()
-++
-++	addr := fmt.Sprintf("%s:%d", host, port)
-++	log.Printf("Server starting on http://%s", addr)
-++	log.Printf("API Documentation: http://%s/docs", addr)
-++	log.Printf("OpenAPI JSON: http://%s/openapi.json", addr)
-++
-++	if err := http.ListenAndServe(addr, router); err != nil {
-++		log.Fatalf("Server failed to start: %v", err)
-++	}
-++}
-++
-++func printBanner() {
-++	fmt.Println(`
-++╔══════════════════════════════════════════════════════════╗
-++║                                                          ║
-++║           ⚔️  MOTOR DE ROL - API SERVER  ⚔️              ║
-++║                                                          ║
-++║   REST API:    http://localhost:8080                     ║
-++║   Docs:        http://localhost:8080/docs                ║
-++║   OpenAPI:     http://localhost:8080/openapi.json        ║
-++║                                                          ║
-++╚══════════════════════════════════════════════════════════╝
-++`)
-++}
-+diff --git a/motor-de-rol b/motor-de-rol
-+new file mode 100755
-+index 0000000..7197f99
-+Binary files /dev/null and b/motor-de-rol differ
-+diff --git a/repository/sqlite_character.go b/repository/sqlite_character.go
-+new file mode 100644
-+index 0000000..5507867
-+--- /dev/null
-++++ b/repository/sqlite_character.go
-+@@ -0,0 +1,71 @@
-++package repository
-++
-++import (
-++	"context"
-++	"fmt"
-++
-++	"motor-de-rol/backend/domain"
-++
-++	"gorm.io/gorm"
-++)
-++
-++type SQLiteCharacterRepo struct {
-++	*SQLiteRepository[domain.Character]
-++	db *gorm.DB
-++}
-++
-++func NewSQLiteCharacterRepo(db *gorm.DB) *SQLiteCharacterRepo {
-++	return &SQLiteCharacterRepo{
-++		SQLiteRepository: NewSQLiteRepository[domain.Character](db),
-++		db:               db,
-++	}
-++}
-++
-++func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.CharacterProfile, error) {
-++	query := `
-++		SELECT 
-++			c.id, c.name, c.age,
-++			r.name as race_name,
-++			s.strength, s.dexterity, s.intelligence
-++		FROM characters c
-++		LEFT JOIN character_stats s ON c.id = s.character_id
-++		LEFT JOIN races r ON c.race_id = r.id
-++		WHERE c.id = ?
-++	`
-++
-++	var profile domain.CharacterProfile
-++	row := r.db.WithContext(ctx).Raw(query, id).Row()
-++
-++	var raceName *string
-++	var strength, dexterity, intelligence *int
-++	err := row.Scan(
-++		&profile.ID,
-++		&profile.Name,
-++		&profile.Age,
-++		&raceName,
-++		&strength,
-++		&dexterity,
-++		&intelligence,
-++	)
-++	if err != nil {
-++		if err == gorm.ErrRecordNotFound {
-++			return nil, fmt.Errorf("character not found with id %d", id)
-++		}
-++		return nil, fmt.Errorf("failed to get character profile: %w", err)
-++	}
-++
-++	if raceName != nil {
-++		profile.RaceName = *raceName
-++	}
-++	if strength != nil {
-++		profile.Strength = *strength
-++	}
-++	if dexterity != nil {
-++		profile.Dexterity = *dexterity
-++	}
-++	if intelligence != nil {
-++		profile.Intelligence = *intelligence
-++	}
-++
-++	return &profile, nil
-++}
-+diff --git a/repository/sqlite_generic.go b/repository/sqlite_generic.go
-+new file mode 100644
-+index 0000000..dcc559d
-+--- /dev/null
-++++ b/repository/sqlite_generic.go
-+@@ -0,0 +1,47 @@
-++package repository
-++
-++import (
-++	"context"
-++	"fmt"
-++
-++	"gorm.io/gorm"
-++)
-++
-++type SQLiteRepository[T any] struct {
-++	db *gorm.DB
-++}
-++
-++func NewSQLiteRepository[T any](db *gorm.DB) *SQLiteRepository[T] {
-++	return &SQLiteRepository[T]{db: db}
-++}
-++
-++func (r *SQLiteRepository[T]) Create(ctx context.Context, entity *T) error {
-++	return r.db.WithContext(ctx).Create(entity).Error
-++}
-++
-++func (r *SQLiteRepository[T]) GetByID(ctx context.Context, id uint) (*T, error) {
-++	var entity T
-++	result := r.db.WithContext(ctx).First(&entity, id)
-++	if result.Error != nil {
-++		if result.Error == gorm.ErrRecordNotFound {
-++			return nil, fmt.Errorf("entity not found with id %d", id)
-++		}
-++		return nil, result.Error
-++	}
-++	return &entity, nil
-++}
-++
-++func (r *SQLiteRepository[T]) Update(ctx context.Context, entity *T) error {
-++	return r.db.WithContext(ctx).Save(entity).Error
-++}
-++
-++func (r *SQLiteRepository[T]) Delete(ctx context.Context, id uint) error {
-++	var entity T
-++	return r.db.WithContext(ctx).Delete(&entity, id).Error
-++}
-++
-++func (r *SQLiteRepository[T]) List(ctx context.Context) ([]T, error) {
-++	var entities []T
-++	result := r.db.WithContext(ctx).Find(&entities)
-++	return entities, result.Error
-++}
-+diff --git a/transport/character_controller.go b/transport/character_controller.go
-+new file mode 100644
-+index 0000000..379ca4a
-+--- /dev/null
-++++ b/transport/character_controller.go
-+@@ -0,0 +1,169 @@
-++package transport
-++
-++import (
-++	"context"
-++	"net/http"
-++
-++	"motor-de-rol/backend/domain"
-++
-++	"github.com/danielgtaylor/huma/v2"
-++)
-++
-++type CharacterController struct {
-++	repo domain.CharacterRepository
-++}
-++
-++func NewCharacterController(repo domain.CharacterRepository) *CharacterController {
-++	return &CharacterController{repo: repo}
-++}
-++
-++func (c *CharacterController) Register(api huma.API) {
-++	huma.Register(api, huma.Operation{
-++		OperationID: "CreateCharacter",
-++		Method:      http.MethodPost,
-++		Path:        "/characters",
-++		Summary:     "Create a new character",
-++	}, c.Create)
-++
-++	huma.Register(api, huma.Operation{
-++		OperationID: "GetCharacter",
-++		Method:      http.MethodGet,
-++		Path:        "/characters/{id}",
-++		Summary:     "Get character by ID",
-++	}, c.GetByID)
-++
-++	huma.Register(api, huma.Operation{
-++		OperationID: "UpdateCharacter",
-++		Method:      http.MethodPut,
-++		Path:        "/characters/{id}",
-++		Summary:     "Update character",
-++	}, c.Update)
-++
-++	huma.Register(api, huma.Operation{
-++		OperationID: "DeleteCharacter",
-++		Method:      http.MethodDelete,
-++		Path:        "/characters/{id}",
-++		Summary:     "Delete character",
-++	}, c.Delete)
-++
-++	huma.Register(api, huma.Operation{
-++		OperationID: "ListCharacters",
-++		Method:      http.MethodGet,
-++		Path:        "/characters",
-++		Summary:     "List all characters",
-++	}, c.List)
-++
-++	huma.Register(api, huma.Operation{
-++		OperationID: "GetCharacterProfile",
-++		Method:      http.MethodGet,
-++		Path:        "/characters/{id}/profile",
-++		Summary:     "Get character full profile with stats and race",
-++	}, c.GetProfile)
-++}
-++
-++type CreateCharacterInput struct {
-++	Body struct {
-++		Name   string `json:"name" minLength:"1" maxLength:"100"`
-++		Age    int    `json:"age" minimum:"1" maximum:"9999"`
-++		RaceID uint   `json:"race_id"`
-++	}
-++}
-++
-++func (c *CharacterController) Create(ctx context.Context, input *CreateCharacterInput) (*struct {
-++	Body *domain.Character
-++}, error) {
-++	character := &domain.Character{
-++		Name:   input.Body.Name,
-++		Age:    input.Body.Age,
-++		RaceID: input.Body.RaceID,
-++	}
-++
-++	if err := c.repo.Create(ctx, character); err != nil {
-++		return nil, huma.Error500InternalServerError("failed to create character", err)
-++	}
-++
-++	return &struct {
-++		Body *domain.Character
-++	}{Body: character}, nil
-++}
-++
-++type CharacterIDInput struct {
-++	ID uint `path:"id" minimum:"1"`
-++}
-++
-++func (c *CharacterController) GetByID(ctx context.Context, input *CharacterIDInput) (*struct {
-++	Body *domain.Character
-++}, error) {
-++	character, err := c.repo.GetByID(ctx, input.ID)
-++	if err != nil {
-++		return nil, huma.Error404NotFound("character not found", err)
-++	}
-++
-++	return &struct {
-++		Body *domain.Character
-++	}{Body: character}, nil
-++}
-++
-++type UpdateCharacterInput struct {
-++	ID uint `path:"id" minimum:"1"`
-++	Body struct {
-++		Name   string `json:"name" minLength:"1" maxLength:"100"`
-++		Age    int    `json:"age" minimum:"1" maximum:"9999"`
-++		RaceID uint   `json:"race_id"`
-++	}
-++}
-++
-++func (c *CharacterController) Update(ctx context.Context, input *UpdateCharacterInput) (*struct {
-++	Body *domain.Character
-++}, error) {
-++	character, err := c.repo.GetByID(ctx, input.ID)
-++	if err != nil {
-++		return nil, huma.Error404NotFound("character not found", err)
-++	}
-++
-++	character.Name = input.Body.Name
-++	character.Age = input.Body.Age
-++	character.RaceID = input.Body.RaceID
-++
-++	if err := c.repo.Update(ctx, character); err != nil {
-++		return nil, huma.Error500InternalServerError("failed to update character", err)
-++	}
-++
-++	return &struct {
-++		Body *domain.Character
-++	}{Body: character}, nil
-++}
-++
-++func (c *CharacterController) Delete(ctx context.Context, input *CharacterIDInput) (*struct{}, error) {
-++	if err := c.repo.Delete(ctx, input.ID); err != nil {
-++		return nil, huma.Error500InternalServerError("failed to delete character", err)
-++	}
-++
-++	return nil, nil
-++}
-++
-++func (c *CharacterController) List(ctx context.Context, input *struct{}) (*struct {
-++	Body []domain.Character
-++}, error) {
-++	characters, err := c.repo.List(ctx)
-++	if err != nil {
-++		return nil, huma.Error500InternalServerError("failed to list characters", err)
-++	}
-++
-++	return &struct {
-++		Body []domain.Character
-++	}{Body: characters}, nil
-++}
-++
-++func (c *CharacterController) GetProfile(ctx context.Context, input *CharacterIDInput) (*struct {
-++	Body *domain.CharacterProfile
-++}, error) {
-++	profile, err := c.repo.GetProfile(ctx, input.ID)
-++	if err != nil {
-++		return nil, huma.Error404NotFound("character profile not found", err)
-++	}
-++
-++	return &struct {
-++		Body *domain.CharacterProfile
-++	}{Body: profile}, nil
-++}
++++ b/domain/character_identity.go
+@@ -0,0 +1,72 @@
++package domain
++
++import "context"
++
++type CharacterFull struct {
++	ID             uint   `json:"id"`
++	RulesetID      uint   `json:"ruleset_id"`
++	UserID         uint   `json:"user_id"`
++	Name           string `json:"name"`
++	Gender         string `json:"gender"`
++	Pronouns       string `json:"pronouns"`
++	Age            int    `json:"age"`
++	AlignmentID    uint   `json:"alignment_id"`
++	Faith          string `json:"faith"`
++	BackgroundID   uint   `json:"background_id"`
++	CityOfOriginID uint   `json:"city_of_origin_id"`
++	Biography      string `json:"biography"`
++}
++
++type CharacterAvatar struct {
++	CharacterID     uint    `json:"character_id" gorm:"primaryKey"`
++	Height          float64 `json:"height"`
++	Weight          float64 `json:"weight"`
++	EyeColor        string  `json:"eye_color"`
++	SkinColor       string  `json:"skin_color"`
++	HairColor       string  `json:"hair_color"`
++	DistinctiveTraits string `json:"distinctive_traits"`
++}
++
++type CharacterAttribute struct {
++	ID          uint `json:"id"`
++	CharacterID uint `json:"character_id"`
++	AttributeID uint `json:"attribute_id"`
++	Value       int  `json:"value"`
++}
++
++type CharacterSkill struct {
++	ID               uint `json:"id"`
++	CharacterID      uint `json:"character_id"`
++	SkillID          uint `json:"skill_id"`
++	ProficiencyLevel int  `json:"proficiency_level"`
++}
++
++type CharacterPsychology struct {
++	ID                uint   `json:"id"`
++	CharacterID       uint   `json:"character_id"`
++	PsychologyTraitID uint   `json:"psychology_trait_id"`
++	CustomDescription string `json:"custom_description"`
++}
++
++type CharacterOrganization struct {
++	ID             uint   `json:"id"`
++	CharacterID    uint   `json:"character_id"`
++	OrganizationID uint   `json:"organization_id"`
++	RankOrRole     string `json:"rank_or_role"`
++}
++
++type CharacterFullSheetDTO struct {
++	Character    *CharacterFull             `json:"character"`
++	Avatar       *CharacterAvatar           `json:"avatar,omitempty"`
++	Attributes   []CharacterAttribute       `json:"attributes"`
++	Stats        []CharacterStat            `json:"stats"`
++	Skills       []CharacterSkill           `json:"skills"`
++	Psychology   []CharacterPsychology      `json:"psychology"`
++	Organizations []CharacterOrganization   `json:"organizations"`
++}
++
++type CharacterIdentityRepository interface {
++	CreateFullCharacter(ctx context.Context, char *CharacterFull, avatar *CharacterAvatar, attrs []CharacterAttribute, stats []CharacterStat, skills []CharacterSkill) error
++	GetFullCharacterSheet(ctx context.Context, charID uint) (*CharacterFullSheetDTO, error)
++	DeleteCharacter(ctx context.Context, charID uint) error
++}
 diff --git a/main.go b/main.go
-index 99de076..7b84204 100644
+index 9d2b967..3d46a9a 100644
 --- a/main.go
 +++ b/main.go
-@@ -1,9 +1,14 @@
- package main
- 
- import (
-+	"context"
- 	"fmt"
- 	"log"
- 	"net/http"
-+	"os"
-+	"os/signal"
-+	"syscall"
-+	"time"
- 
- 	"motor-de-rol/backend/db"
- 	"motor-de-rol/backend/repository"
-@@ -44,16 +49,44 @@ func main() {
- 	log.Printf("API Documentation: http://%s/docs", addr)
- 	log.Printf("OpenAPI JSON: http://%s/openapi.json", addr)
- 
--	if err := http.ListenAndServe(addr, router); err != nil {
--		log.Fatalf("Server failed to start: %v", err)
-+	server := &http.Server{
-+		Addr:    addr,
-+		Handler: router,
+@@ -32,6 +32,7 @@ func main() {
  	}
-+
-+	stop := make(chan os.Signal, 1)
-+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-+
-+	go func() {
-+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-+			log.Fatalf("Server failed to start: %v", err)
-+		}
-+	}()
-+
-+	<-stop
-+
-+	log.Println("Shutting down server...")
-+
-+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-+	defer cancel()
-+
-+	if err := server.Shutdown(shutdownCtx); err != nil {
-+		log.Printf("Server forced to shutdown: %v", err)
-+	}
-+
-+	sqlDB, dbErr := database.DB()
-+	if dbErr == nil {
-+		sqlDB.Close()
-+	}
-+
-+	log.Println("Server stopped gracefully")
- }
  
- func printBanner() {
- 	fmt.Println(`
- ╔══════════════════════════════════════════════════════════╗
- ║                                                          ║
--║           ⚔️  MOTOR DE ROL - API SERVER  ⚔️              ║
-+║           MOTOR DE ROL - API SERVER                      ║
- ║                                                          ║
- ║   REST API:    http://localhost:8080                     ║
- ║   Docs:        http://localhost:8080/docs                ║
-diff --git a/motor-de-rol b/motor-de-rol
-index 7197f99..7f1c55c 100755
-Binary files a/motor-de-rol and b/motor-de-rol differ
+ 	characterRepo := repository.NewSQLiteCharacterRepo(database)
++	charIdentityRepo := repository.NewSQLiteCharacterIdentityRepo(database)
+ 
+ 	router := chi.NewRouter()
+ 	router.Use(middleware.Logger)
+@@ -42,6 +43,9 @@ func main() {
+ 	characterController := transport.NewCharacterController(characterRepo)
+ 	characterController.Register(api)
+ 
++	charIdentityController := transport.NewCharacterIdentityController(charIdentityRepo)
++	charIdentityController.Register(api)
++
+ 	printBanner()
+ 
+ 	addr := fmt.Sprintf("%s:%d", host, port)
 diff --git a/repository/sqlite_character.go b/repository/sqlite_character.go
-index 5507867..9664f9f 100644
+index 9664f9f..9e2801b 100644
 --- a/repository/sqlite_character.go
 +++ b/repository/sqlite_character.go
-@@ -2,6 +2,7 @@ package repository
+@@ -28,8 +28,12 @@ func (r *SQLiteCharacterRepo) Delete(ctx context.Context, id uint) error {
+ 			return fmt.Errorf("failed to delete character stats: %w", err)
+ 		}
  
- import (
- 	"context"
-+	"database/sql"
- 	"fmt"
+-		if err := tx.Delete(&domain.Character{}, id).Error; err != nil {
+-			return fmt.Errorf("failed to delete character: %w", err)
++		result := tx.Delete(&domain.Character{}, id)
++		if result.Error != nil {
++			return fmt.Errorf("failed to delete character: %w", result.Error)
++		}
++		if result.RowsAffected == 0 {
++			return nil
+ 		}
  
- 	"motor-de-rol/backend/domain"
-@@ -21,6 +22,20 @@ func NewSQLiteCharacterRepo(db *gorm.DB) *SQLiteCharacterRepo {
- 	}
+ 		return nil
+@@ -37,49 +41,46 @@ func (r *SQLiteCharacterRepo) Delete(ctx context.Context, id uint) error {
  }
  
-+func (r *SQLiteCharacterRepo) Delete(ctx context.Context, id uint) error {
+ func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.CharacterProfile, error) {
+-	query := `
+-		SELECT 
+-			c.id, c.name, c.age,
+-			r.name as race_name,
+-			s.strength, s.dexterity, s.intelligence
++	charQuery := `
++		SELECT c.id, c.name, c.age, COALESCE(r.name, '')
+ 		FROM characters c
+-		LEFT JOIN character_stats s ON c.id = s.character_id
+ 		LEFT JOIN races r ON c.race_id = r.id
+ 		WHERE c.id = ?
+ 	`
+ 
+ 	var profile domain.CharacterProfile
+-	row := r.db.WithContext(ctx).Raw(query, id).Row()
+-
+-	var raceName *string
+-	var strength, dexterity, intelligence *int
+-	err := row.Scan(
+-		&profile.ID,
+-		&profile.Name,
+-		&profile.Age,
+-		&raceName,
+-		&strength,
+-		&dexterity,
+-		&intelligence,
+-	)
++	var raceName string
++	row := r.db.WithContext(ctx).Raw(charQuery, id).Row()
++	err := row.Scan(&profile.ID, &profile.Name, &profile.Age, &raceName)
+ 	if err != nil {
+ 		if err == sql.ErrNoRows {
+ 			return nil, fmt.Errorf("character not found with id %d", id)
+ 		}
+ 		return nil, fmt.Errorf("failed to get character profile: %w", err)
+ 	}
++	profile.RaceName = raceName
++	profile.Stats = make(map[string]int)
+ 
+-	if raceName != nil {
+-		profile.RaceName = *raceName
+-	}
+-	if strength != nil {
+-		profile.Strength = *strength
+-	}
+-	if dexterity != nil {
+-		profile.Dexterity = *dexterity
++	statsQuery := `
++		SELECT s.name, cs.value
++		FROM character_stats cs
++		JOIN stats s ON cs.stat_id = s.id
++		WHERE cs.character_id = ?
++	`
++
++	rows, err := r.db.WithContext(ctx).Raw(statsQuery, id).Rows()
++	if err != nil {
++		return nil, fmt.Errorf("failed to get character stats: %w", err)
+ 	}
+-	if intelligence != nil {
+-		profile.Intelligence = *intelligence
++	defer rows.Close()
++
++	for rows.Next() {
++		var statName string
++		var value int
++		if err := rows.Scan(&statName, &value); err != nil {
++			return nil, fmt.Errorf("failed to scan stat row: %w", err)
++		}
++		profile.Stats[statName] = value
+ 	}
+ 
+ 	return &profile, nil
+diff --git a/repository/sqlite_character_identity.go b/repository/sqlite_character_identity.go
+new file mode 100644
+index 0000000..4742b02
+--- /dev/null
++++ b/repository/sqlite_character_identity.go
+@@ -0,0 +1,148 @@
++package repository
++
++import (
++	"context"
++	"fmt"
++
++	"motor-de-rol/backend/domain"
++
++	"gorm.io/gorm"
++)
++
++type SQLiteCharacterIdentityRepo struct {
++	db *gorm.DB
++}
++
++func NewSQLiteCharacterIdentityRepo(db *gorm.DB) *SQLiteCharacterIdentityRepo {
++	return &SQLiteCharacterIdentityRepo{db: db}
++}
++
++func (r *SQLiteCharacterIdentityRepo) CreateFullCharacter(ctx context.Context, char *domain.CharacterFull, avatar *domain.CharacterAvatar, attrs []domain.CharacterAttribute, stats []domain.CharacterStat, skills []domain.CharacterSkill) error {
 +	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-+		if err := tx.Exec("DELETE FROM character_stats WHERE character_id = ?", id).Error; err != nil {
-+			return fmt.Errorf("failed to delete character stats: %w", err)
++		if err := tx.Create(char).Error; err != nil {
++			return fmt.Errorf("failed to create character: %w", err)
 +		}
 +
-+		if err := tx.Delete(&domain.Character{}, id).Error; err != nil {
-+			return fmt.Errorf("failed to delete character: %w", err)
++		if avatar != nil {
++			avatar.CharacterID = char.ID
++			if err := tx.Create(avatar).Error; err != nil {
++				return fmt.Errorf("failed to create character avatar: %w", err)
++			}
++		}
++
++		for i := range attrs {
++			attrs[i].CharacterID = char.ID
++		}
++		if len(attrs) > 0 {
++			if err := tx.Create(&attrs).Error; err != nil {
++				return fmt.Errorf("failed to create character attributes: %w", err)
++			}
++		}
++
++		for i := range stats {
++			stats[i].CharacterID = char.ID
++		}
++		if len(stats) > 0 {
++			if err := tx.Create(&stats).Error; err != nil {
++				return fmt.Errorf("failed to create character stats: %w", err)
++			}
++		}
++
++		for i := range skills {
++			skills[i].CharacterID = char.ID
++		}
++		if len(skills) > 0 {
++			if err := tx.Create(&skills).Error; err != nil {
++				return fmt.Errorf("failed to create character skills: %w", err)
++			}
 +		}
 +
 +		return nil
 +	})
 +}
 +
- func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.CharacterProfile, error) {
- 	query := `
- 		SELECT 
-@@ -48,7 +63,7 @@ func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.
- 		&intelligence,
- 	)
- 	if err != nil {
--		if err == gorm.ErrRecordNotFound {
-+		if err == sql.ErrNoRows {
- 			return nil, fmt.Errorf("character not found with id %d", id)
- 		}
- 		return nil, fmt.Errorf("failed to get character profile: %w", err)
++func (r *SQLiteCharacterIdentityRepo) GetFullCharacterSheet(ctx context.Context, charID uint) (*domain.CharacterFullSheetDTO, error) {
++	var character domain.CharacterFull
++	if err := r.db.WithContext(ctx).First(&character, charID).Error; err != nil {
++		if err == gorm.ErrRecordNotFound {
++			return nil, fmt.Errorf("character not found with id %d", charID)
++		}
++		return nil, fmt.Errorf("failed to get character: %w", err)
++	}
++
++	dto := &domain.CharacterFullSheetDTO{
++		Character: &character,
++	}
++
++	var avatar domain.CharacterAvatar
++	if err := r.db.WithContext(ctx).Where("character_id = ?", charID).First(&avatar).Error; err == nil {
++		dto.Avatar = &avatar
++	}
++
++	var attributes []domain.CharacterAttribute
++	if err := r.db.WithContext(ctx).Where("character_id = ?", charID).Find(&attributes).Error; err != nil {
++		return nil, fmt.Errorf("failed to get character attributes: %w", err)
++	}
++	dto.Attributes = attributes
++
++	var stats []domain.CharacterStat
++	if err := r.db.WithContext(ctx).Where("character_id = ?", charID).Find(&stats).Error; err != nil {
++		return nil, fmt.Errorf("failed to get character stats: %w", err)
++	}
++	dto.Stats = stats
++
++	var skills []domain.CharacterSkill
++	if err := r.db.WithContext(ctx).Where("character_id = ?", charID).Find(&skills).Error; err != nil {
++		return nil, fmt.Errorf("failed to get character skills: %w", err)
++	}
++	dto.Skills = skills
++
++	var psychology []domain.CharacterPsychology
++	if err := r.db.WithContext(ctx).Where("character_id = ?", charID).Find(&psychology).Error; err != nil {
++		return nil, fmt.Errorf("failed to get character psychology: %w", err)
++	}
++	dto.Psychology = psychology
++
++	var organizations []domain.CharacterOrganization
++	if err := r.db.WithContext(ctx).Where("character_id = ?", charID).Find(&organizations).Error; err != nil {
++		return nil, fmt.Errorf("failed to get character organizations: %w", err)
++	}
++	dto.Organizations = organizations
++
++	return dto, nil
++}
++
++func (r *SQLiteCharacterIdentityRepo) DeleteCharacter(ctx context.Context, charID uint) error {
++	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
++		if err := tx.Exec("DELETE FROM character_psychologies WHERE character_id = ?", charID).Error; err != nil {
++			return fmt.Errorf("failed to delete character psychologies: %w", err)
++		}
++
++		if err := tx.Exec("DELETE FROM character_organizations WHERE character_id = ?", charID).Error; err != nil {
++			return fmt.Errorf("failed to delete character organizations: %w", err)
++		}
++
++		if err := tx.Exec("DELETE FROM character_attributes WHERE character_id = ?", charID).Error; err != nil {
++			return fmt.Errorf("failed to delete character attributes: %w", err)
++		}
++
++		if err := tx.Exec("DELETE FROM character_stats WHERE character_id = ?", charID).Error; err != nil {
++			return fmt.Errorf("failed to delete character stats: %w", err)
++		}
++
++		if err := tx.Exec("DELETE FROM character_skills WHERE character_id = ?", charID).Error; err != nil {
++			return fmt.Errorf("failed to delete character skills: %w", err)
++		}
++
++		if err := tx.Exec("DELETE FROM character_avatars WHERE character_id = ?", charID).Error; err != nil {
++			return fmt.Errorf("failed to delete character avatar: %w", err)
++		}
++
++		result := tx.Delete(&domain.CharacterFull{}, charID)
++		if result.Error != nil {
++			return fmt.Errorf("failed to delete character: %w", result.Error)
++		}
++
++		return nil
++	})
++}
+diff --git a/repository/sqlite_character_test.go b/repository/sqlite_character_test.go
+index f8a4a98..a251035 100644
+--- a/repository/sqlite_character_test.go
++++ b/repository/sqlite_character_test.go
+@@ -16,7 +16,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
+ 	t.Helper()
+ 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+ 	require.NoError(t, err)
+-	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.CharacterStat{})
++	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.Stat{}, &domain.CharacterStat{})
+ 	require.NoError(t, err)
+ 	sqlDB, err := db.DB()
+ 	require.NoError(t, err)
+@@ -62,13 +62,21 @@ func TestGetProfile_Success(t *testing.T) {
+ 	}
+ 	require.NoError(t, repo.Create(ctx, character))
+ 
+-	stats := &domain.CharacterStat{
+-		CharacterID:  character.ID,
+-		Strength:     15,
+-		Dexterity:    12,
+-		Intelligence: 18,
++	statStr := &domain.Stat{Name: "Fuerza"}
++	statDex := &domain.Stat{Name: "Destreza"}
++	statInt := &domain.Stat{Name: "Inteligencia"}
++	require.NoError(t, db.Create(statStr).Error)
++	require.NoError(t, db.Create(statDex).Error)
++	require.NoError(t, db.Create(statInt).Error)
++
++	stats := []domain.CharacterStat{
++		{CharacterID: character.ID, StatID: statStr.ID, Value: 15},
++		{CharacterID: character.ID, StatID: statDex.ID, Value: 12},
++		{CharacterID: character.ID, StatID: statInt.ID, Value: 18},
++	}
++	for i := range stats {
++		require.NoError(t, db.Create(&stats[i]).Error)
+ 	}
+-	require.NoError(t, db.Create(stats).Error)
+ 
+ 	profile, err := repo.GetProfile(ctx, character.ID)
+ 	require.NoError(t, err)
+@@ -77,9 +85,9 @@ func TestGetProfile_Success(t *testing.T) {
+ 	assert.Equal(t, "Aldric", profile.Name)
+ 	assert.Equal(t, 30, profile.Age)
+ 	assert.Equal(t, "Human", profile.RaceName)
+-	assert.Equal(t, 15, profile.Strength)
+-	assert.Equal(t, 12, profile.Dexterity)
+-	assert.Equal(t, 18, profile.Intelligence)
++	assert.Equal(t, 15, profile.Stats["Fuerza"])
++	assert.Equal(t, 12, profile.Stats["Destreza"])
++	assert.Equal(t, 18, profile.Stats["Inteligencia"])
+ }
+ 
+ func TestGetProfile_NotFound(t *testing.T) {
+@@ -115,9 +123,7 @@ func TestGetProfile_WithNullStats(t *testing.T) {
+ 	assert.Equal(t, character.ID, profile.ID)
+ 	assert.Equal(t, "Legolas", profile.Name)
+ 	assert.Equal(t, "Elf", profile.RaceName)
+-	assert.Equal(t, 0, profile.Strength)
+-	assert.Equal(t, 0, profile.Dexterity)
+-	assert.Equal(t, 0, profile.Intelligence)
++	assert.Empty(t, profile.Stats)
+ }
+ 
+ func TestDelete_Cascade(t *testing.T) {
+@@ -132,13 +138,15 @@ func TestDelete_Cascade(t *testing.T) {
+ 	}
+ 	require.NoError(t, repo.Create(ctx, character))
+ 
+-	stats := &domain.CharacterStat{
+-		CharacterID:  character.ID,
+-		Strength:     10,
+-		Dexterity:    8,
+-		Intelligence: 20,
++	stat := &domain.Stat{Name: "Fuerza"}
++	require.NoError(t, db.Create(stat).Error)
++
++	charStat := &domain.CharacterStat{
++		CharacterID: character.ID,
++		StatID:      stat.ID,
++		Value:       10,
+ 	}
+-	require.NoError(t, db.Create(stats).Error)
++	require.NoError(t, db.Create(charStat).Error)
+ 
+ 	err := repo.Delete(ctx, character.ID)
+ 	require.NoError(t, err)
+diff --git a/transport/character_controller_test.go b/transport/character_controller_test.go
+index ef3896f..33b352b 100644
+--- a/transport/character_controller_test.go
++++ b/transport/character_controller_test.go
+@@ -24,7 +24,7 @@ func setupTestAPI(t *testing.T) (*gorm.DB, *repository.SQLiteCharacterRepo, http
+ 	t.Helper()
+ 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+ 	require.NoError(t, err)
+-	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.CharacterStat{})
++	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.Stat{}, &domain.CharacterStat{})
+ 	require.NoError(t, err)
+ 	sqlDB, err := db.DB()
+ 	require.NoError(t, err)
+@@ -229,13 +229,21 @@ func TestGetProfile_Success(t *testing.T) {
+ 	}
+ 	require.NoError(t, db.WithContext(ctx).Create(character).Error)
+ 
+-	stats := &domain.CharacterStat{
+-		CharacterID:  character.ID,
+-		Strength:     15,
+-		Dexterity:    12,
+-		Intelligence: 18,
++	statStr := &domain.Stat{Name: "Fuerza"}
++	statDex := &domain.Stat{Name: "Destreza"}
++	statInt := &domain.Stat{Name: "Inteligencia"}
++	require.NoError(t, db.WithContext(ctx).Create(statStr).Error)
++	require.NoError(t, db.WithContext(ctx).Create(statDex).Error)
++	require.NoError(t, db.WithContext(ctx).Create(statInt).Error)
++
++	stats := []domain.CharacterStat{
++		{CharacterID: character.ID, StatID: statStr.ID, Value: 15},
++		{CharacterID: character.ID, StatID: statDex.ID, Value: 12},
++		{CharacterID: character.ID, StatID: statInt.ID, Value: 18},
++	}
++	for i := range stats {
++		require.NoError(t, db.WithContext(ctx).Create(&stats[i]).Error)
+ 	}
+-	require.NoError(t, db.WithContext(ctx).Create(stats).Error)
+ 
+ 	rec := doRequest(t, handler, http.MethodGet, "/characters/1/profile", nil)
+ 
+@@ -244,9 +252,9 @@ func TestGetProfile_Success(t *testing.T) {
+ 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &profile))
+ 	assert.Equal(t, "Aldric", profile.Name)
+ 	assert.Equal(t, "Human", profile.RaceName)
+-	assert.Equal(t, 15, profile.Strength)
+-	assert.Equal(t, 12, profile.Dexterity)
+-	assert.Equal(t, 18, profile.Intelligence)
++	assert.Equal(t, 15, profile.Stats["Fuerza"])
++	assert.Equal(t, 12, profile.Stats["Destreza"])
++	assert.Equal(t, 18, profile.Stats["Inteligencia"])
+ }
+ 
+ func TestGetProfile_NotFound(t *testing.T) {
+diff --git a/transport/character_identity_controller.go b/transport/character_identity_controller.go
+new file mode 100644
+index 0000000..8f53dda
+--- /dev/null
++++ b/transport/character_identity_controller.go
+@@ -0,0 +1,171 @@
++package transport
++
++import (
++	"context"
++	"net/http"
++
++	"motor-de-rol/backend/domain"
++
++	"github.com/danielgtaylor/huma/v2"
++)
++
++type CharacterIdentityController struct {
++	repo domain.CharacterIdentityRepository
++}
++
++func NewCharacterIdentityController(repo domain.CharacterIdentityRepository) *CharacterIdentityController {
++	return &CharacterIdentityController{repo: repo}
++}
++
++func (c *CharacterIdentityController) Register(api huma.API) {
++	huma.Register(api, huma.Operation{
++		OperationID: "CreateFullCharacter",
++		Method:      http.MethodPost,
++		Path:        "/characters/full",
++		Summary:     "Create a full character with avatar, attributes, stats, and skills",
++	}, c.CreateFullCharacter)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "GetFullCharacterSheet",
++		Method:      http.MethodGet,
++		Path:        "/characters/{id}/sheet",
++		Summary:     "Get the full character sheet consolidated",
++	}, c.GetFullCharacterSheet)
++
++	huma.Register(api, huma.Operation{
++		OperationID: "DeleteCharacterIdentity",
++		Method:      http.MethodDelete,
++		Path:        "/characters/{id}",
++		Summary:     "Delete a character and all its dependencies",
++	}, c.DeleteCharacter)
++}
++
++type CreateFullCharacterInput struct {
++	Body struct {
++		Character struct {
++			RulesetID      uint   `json:"ruleset_id"`
++			UserID         uint   `json:"user_id"`
++			Name           string `json:"name" minLength:"1" maxLength:"100"`
++			Gender         string `json:"gender" maxLength:"50"`
++			Pronouns       string `json:"pronouns" maxLength:"50"`
++			Age            int    `json:"age" minimum:"1" maximum:"9999"`
++			AlignmentID    uint   `json:"alignment_id"`
++			Faith          string `json:"faith" maxLength:"100"`
++			BackgroundID   uint   `json:"background_id"`
++			CityOfOriginID uint   `json:"city_of_origin_id"`
++			Biography      string `json:"biography" maxLength:"5000"`
++		} `json:"character"`
++		Avatar *struct {
++			Height          float64 `json:"height" minimum:"0" maximum:"500"`
++			Weight          float64 `json:"weight" minimum:"0" maximum:"1000"`
++			EyeColor        string  `json:"eye_color" maxLength:"50"`
++			SkinColor       string  `json:"skin_color" maxLength:"50"`
++			HairColor       string  `json:"hair_color" maxLength:"50"`
++			DistinctiveTraits string `json:"distinctive_traits" maxLength:"500"`
++		} `json:"avatar,omitempty"`
++		Attributes []struct {
++			AttributeID uint `json:"attribute_id"`
++			Value       int  `json:"value" minimum:"0" maximum:"100"`
++		} `json:"attributes,omitempty"`
++		Stats []struct {
++			StatID uint `json:"stat_id"`
++			Value  int  `json:"value" minimum:"0" maximum:"100"`
++		} `json:"stats,omitempty"`
++		Skills []struct {
++			SkillID          uint `json:"skill_id"`
++			ProficiencyLevel int  `json:"proficiency_level" minimum:"0" maximum:"10"`
++		} `json:"skills,omitempty"`
++	}
++}
++
++func (c *CharacterIdentityController) CreateFullCharacter(ctx context.Context, input *CreateFullCharacterInput) (*struct {
++	Body *domain.CharacterFullSheetDTO
++}, error) {
++	char := &domain.CharacterFull{
++		RulesetID:      input.Body.Character.RulesetID,
++		UserID:         input.Body.Character.UserID,
++		Name:           input.Body.Character.Name,
++		Gender:         input.Body.Character.Gender,
++		Pronouns:       input.Body.Character.Pronouns,
++		Age:            input.Body.Character.Age,
++		AlignmentID:    input.Body.Character.AlignmentID,
++		Faith:          input.Body.Character.Faith,
++		BackgroundID:   input.Body.Character.BackgroundID,
++		CityOfOriginID: input.Body.Character.CityOfOriginID,
++		Biography:      input.Body.Character.Biography,
++	}
++
++	var avatar *domain.CharacterAvatar
++	if input.Body.Avatar != nil {
++		avatar = &domain.CharacterAvatar{
++			Height:          input.Body.Avatar.Height,
++			Weight:          input.Body.Avatar.Weight,
++			EyeColor:        input.Body.Avatar.EyeColor,
++			SkinColor:       input.Body.Avatar.SkinColor,
++			HairColor:       input.Body.Avatar.HairColor,
++			DistinctiveTraits: input.Body.Avatar.DistinctiveTraits,
++		}
++	}
++
++	attrs := make([]domain.CharacterAttribute, len(input.Body.Attributes))
++	for i, a := range input.Body.Attributes {
++		attrs[i] = domain.CharacterAttribute{
++			AttributeID: a.AttributeID,
++			Value:       a.Value,
++		}
++	}
++
++	stats := make([]domain.CharacterStat, len(input.Body.Stats))
++	for i, s := range input.Body.Stats {
++		stats[i] = domain.CharacterStat{
++			StatID: s.StatID,
++			Value:  s.Value,
++		}
++	}
++
++	skills := make([]domain.CharacterSkill, len(input.Body.Skills))
++	for i, sk := range input.Body.Skills {
++		skills[i] = domain.CharacterSkill{
++			SkillID:          sk.SkillID,
++			ProficiencyLevel: sk.ProficiencyLevel,
++		}
++	}
++
++	if err := c.repo.CreateFullCharacter(ctx, char, avatar, attrs, stats, skills); err != nil {
++		return nil, huma.Error500InternalServerError("failed to create full character", err)
++	}
++
++	sheet, err := c.repo.GetFullCharacterSheet(ctx, char.ID)
++	if err != nil {
++		return nil, huma.Error500InternalServerError("failed to retrieve created character", err)
++	}
++
++	return &struct {
++		Body *domain.CharacterFullSheetDTO
++	}{Body: sheet}, nil
++}
++
++type CharacterSheetIDInput struct {
++	ID uint `path:"id" minimum:"1"`
++}
++
++func (c *CharacterIdentityController) GetFullCharacterSheet(ctx context.Context, input *CharacterSheetIDInput) (*struct {
++	Body *domain.CharacterFullSheetDTO
++}, error) {
++	sheet, err := c.repo.GetFullCharacterSheet(ctx, input.ID)
++	if err != nil {
++		return nil, huma.Error404NotFound("character sheet not found", err)
++	}
++
++	return &struct {
++		Body *domain.CharacterFullSheetDTO
++	}{Body: sheet}, nil
++}
++
++func (c *CharacterIdentityController) DeleteCharacter(ctx context.Context, input *CharacterSheetIDInput) (*struct{}, error) {
++	if err := c.repo.DeleteCharacter(ctx, input.ID); err != nil {
++		return nil, huma.Error500InternalServerError("failed to delete character", err)
++	}
++
++	return nil, nil
++}
