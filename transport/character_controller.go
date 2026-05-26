@@ -40,13 +40,6 @@ func (c *CharacterController) Register(api huma.API) {
 	}, c.Update)
 
 	huma.Register(api, huma.Operation{
-		OperationID: "DeleteCharacter",
-		Method:      http.MethodDelete,
-		Path:        "/characters/{id}",
-		Summary:     "Delete character",
-	}, c.Delete)
-
-	huma.Register(api, huma.Operation{
 		OperationID: "ListCharacters",
 		Method:      http.MethodGet,
 		Path:        "/characters",
@@ -132,14 +125,6 @@ func (c *CharacterController) Update(ctx context.Context, input *UpdateCharacter
 	return &struct {
 		Body *domain.Character
 	}{Body: character}, nil
-}
-
-func (c *CharacterController) Delete(ctx context.Context, input *CharacterIDInput) (*struct{}, error) {
-	if err := c.repo.Delete(ctx, input.ID); err != nil {
-		return nil, huma.Error500InternalServerError("failed to delete character", err)
-	}
-
-	return nil, nil
 }
 
 func (c *CharacterController) List(ctx context.Context, input *struct{}) (*struct {

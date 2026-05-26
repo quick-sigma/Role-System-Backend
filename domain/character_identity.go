@@ -18,7 +18,7 @@ type CharacterFull struct {
 }
 
 type CharacterAvatar struct {
-	CharacterID     uint    `json:"character_id" gorm:"primaryKey"`
+	CharacterID     uint    `json:"character_id"`
 	Height          float64 `json:"height"`
 	Weight          float64 `json:"weight"`
 	EyeColor        string  `json:"eye_color"`

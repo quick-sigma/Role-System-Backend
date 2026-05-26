@@ -174,22 +174,6 @@ func TestUpdate_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
-func TestDelete_Success(t *testing.T) {
-	db, _, handler := setupTestAPI(t)
-	ctx := context.Background()
-
-	character := &domain.Character{Name: "Gandalf", Age: 2000, RaceID: 1}
-	require.NoError(t, db.WithContext(ctx).Create(character).Error)
-
-	rec := doRequest(t, handler, http.MethodDelete, "/characters/1", nil)
-
-	assert.Equal(t, http.StatusNoContent, rec.Code)
-
-	var count int64
-	db.Raw("SELECT COUNT(*) FROM characters WHERE id = ?", character.ID).Scan(&count)
-	assert.Equal(t, int64(0), count)
-}
-
 func TestList_EmptyAndPopulated(t *testing.T) {
 	_, repo, handler := setupTestAPI(t)
 	ctx := context.Background()

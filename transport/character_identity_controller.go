@@ -40,41 +40,51 @@ func (c *CharacterIdentityController) Register(api huma.API) {
 	}, c.DeleteCharacter)
 }
 
+type AttrInput struct {
+	AttributeID uint `json:"attribute_id"`
+	Value       int  `json:"value" minimum:"0" maximum:"100"`
+}
+
+type StatInput struct {
+	StatID uint `json:"stat_id"`
+	Value  int  `json:"value" minimum:"0" maximum:"100"`
+}
+
+type SkillInput struct {
+	SkillID          uint `json:"skill_id"`
+	ProficiencyLevel int  `json:"proficiency_level" minimum:"0" maximum:"10"`
+}
+
+type AvatarInput struct {
+	Height          float64 `json:"height" minimum:"0" maximum:"500"`
+	Weight          float64 `json:"weight" minimum:"0" maximum:"1000"`
+	EyeColor        string  `json:"eye_color" maxLength:"50"`
+	SkinColor       string  `json:"skin_color" maxLength:"50"`
+	HairColor       string  `json:"hair_color" maxLength:"50"`
+	DistinctiveTraits string `json:"distinctive_traits" maxLength:"500"`
+}
+
+type CharacterInput struct {
+	RulesetID      uint   `json:"ruleset_id"`
+	UserID         uint   `json:"user_id"`
+	Name           string `json:"name" minLength:"1" maxLength:"100"`
+	Gender         string `json:"gender" maxLength:"50"`
+	Pronouns       string `json:"pronouns" maxLength:"50"`
+	Age            int    `json:"age" minimum:"1" maximum:"9999"`
+	AlignmentID    uint   `json:"alignment_id"`
+	Faith          string `json:"faith" maxLength:"100"`
+	BackgroundID   uint   `json:"background_id"`
+	CityOfOriginID uint   `json:"city_of_origin_id"`
+	Biography      string `json:"biography" maxLength:"5000"`
+}
+
 type CreateFullCharacterInput struct {
 	Body struct {
-		Character struct {
-			RulesetID      uint   `json:"ruleset_id"`
-			UserID         uint   `json:"user_id"`
-			Name           string `json:"name" minLength:"1" maxLength:"100"`
-			Gender         string `json:"gender" maxLength:"50"`
-			Pronouns       string `json:"pronouns" maxLength:"50"`
-			Age            int    `json:"age" minimum:"1" maximum:"9999"`
-			AlignmentID    uint   `json:"alignment_id"`
-			Faith          string `json:"faith" maxLength:"100"`
-			BackgroundID   uint   `json:"background_id"`
-			CityOfOriginID uint   `json:"city_of_origin_id"`
-			Biography      string `json:"biography" maxLength:"5000"`
-		} `json:"character"`
-		Avatar *struct {
-			Height          float64 `json:"height" minimum:"0" maximum:"500"`
-			Weight          float64 `json:"weight" minimum:"0" maximum:"1000"`
-			EyeColor        string  `json:"eye_color" maxLength:"50"`
-			SkinColor       string  `json:"skin_color" maxLength:"50"`
-			HairColor       string  `json:"hair_color" maxLength:"50"`
-			DistinctiveTraits string `json:"distinctive_traits" maxLength:"500"`
-		} `json:"avatar,omitempty"`
-		Attributes []struct {
-			AttributeID uint `json:"attribute_id"`
-			Value       int  `json:"value" minimum:"0" maximum:"100"`
-		} `json:"attributes,omitempty"`
-		Stats []struct {
-			StatID uint `json:"stat_id"`
-			Value  int  `json:"value" minimum:"0" maximum:"100"`
-		} `json:"stats,omitempty"`
-		Skills []struct {
-			SkillID          uint `json:"skill_id"`
-			ProficiencyLevel int  `json:"proficiency_level" minimum:"0" maximum:"10"`
-		} `json:"skills,omitempty"`
+		Character  CharacterInput `json:"character"`
+		Avatar     *AvatarInput   `json:"avatar,omitempty"`
+		Attributes []AttrInput    `json:"attributes,omitempty"`
+		Stats      []StatInput    `json:"stats,omitempty"`
+		Skills     []SkillInput   `json:"skills,omitempty"`
 	}
 }
 
