@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"motor-de-rol/backend/domain"
@@ -19,6 +20,20 @@ func NewSQLiteCharacterRepo(db *gorm.DB) *SQLiteCharacterRepo {
 		SQLiteRepository: NewSQLiteRepository[domain.Character](db),
 		db:               db,
 	}
+}
+
+func (r *SQLiteCharacterRepo) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM character_stats WHERE character_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete character stats: %w", err)
+		}
+
+		if err := tx.Delete(&domain.Character{}, id).Error; err != nil {
+			return fmt.Errorf("failed to delete character: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.CharacterProfile, error) {
@@ -48,7 +63,7 @@ func (r *SQLiteCharacterRepo) GetProfile(ctx context.Context, id uint) (*domain.
 		&intelligence,
 	)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("character not found with id %d", id)
 		}
 		return nil, fmt.Errorf("failed to get character profile: %w", err)

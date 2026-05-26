@@ -1,0 +1,31 @@
+# Binarios
+motor-de-rol
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Bases de datos SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Go
+vendor/
+go.sum
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

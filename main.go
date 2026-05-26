@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"motor-de-rol/backend/db"
 	"motor-de-rol/backend/repository"
@@ -44,16 +49,44 @@ func main() {
 	log.Printf("API Documentation: http://%s/docs", addr)
 	log.Printf("OpenAPI JSON: http://%s/openapi.json", addr)
 
-	if err := http.ListenAndServe(addr, router); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: router,
 	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	<-stop
+
+	log.Println("Shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	}
+
+	sqlDB, dbErr := database.DB()
+	if dbErr == nil {
+		sqlDB.Close()
+	}
+
+	log.Println("Server stopped gracefully")
 }
 
 func printBanner() {
 	fmt.Println(`
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
-║           ⚔️  MOTOR DE ROL - API SERVER  ⚔️              ║
+║           MOTOR DE ROL - API SERVER                      ║
 ║                                                          ║
 ║   REST API:    http://localhost:8080                     ║
 ║   Docs:        http://localhost:8080/docs                ║
