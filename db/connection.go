@@ -41,6 +41,13 @@ func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&domain.Character{},
 		&domain.Race{},
+		&domain.Stat{},
 		&domain.CharacterStat{},
+		&domain.CharacterFull{},
+		&domain.CharacterAvatar{},
+		&domain.CharacterAttribute{},
+		&domain.CharacterSkill{},
+		&domain.CharacterPsychology{},
+		&domain.CharacterOrganization{},
 	)
 }

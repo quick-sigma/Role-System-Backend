@@ -16,7 +16,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.CharacterStat{})
+	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.Stat{}, &domain.CharacterStat{})
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
@@ -62,13 +62,21 @@ func TestGetProfile_Success(t *testing.T) {
 	}
 	require.NoError(t, repo.Create(ctx, character))
 
-	stats := &domain.CharacterStat{
-		CharacterID:  character.ID,
-		Strength:     15,
-		Dexterity:    12,
-		Intelligence: 18,
+	statStr := &domain.Stat{Name: "Fuerza"}
+	statDex := &domain.Stat{Name: "Destreza"}
+	statInt := &domain.Stat{Name: "Inteligencia"}
+	require.NoError(t, db.Create(statStr).Error)
+	require.NoError(t, db.Create(statDex).Error)
+	require.NoError(t, db.Create(statInt).Error)
+
+	stats := []domain.CharacterStat{
+		{CharacterID: character.ID, StatID: statStr.ID, Value: 15},
+		{CharacterID: character.ID, StatID: statDex.ID, Value: 12},
+		{CharacterID: character.ID, StatID: statInt.ID, Value: 18},
 	}
-	require.NoError(t, db.Create(stats).Error)
+	for i := range stats {
+		require.NoError(t, db.Create(&stats[i]).Error)
+	}
 
 	profile, err := repo.GetProfile(ctx, character.ID)
 	require.NoError(t, err)
@@ -77,9 +85,9 @@ func TestGetProfile_Success(t *testing.T) {
 	assert.Equal(t, "Aldric", profile.Name)
 	assert.Equal(t, 30, profile.Age)
 	assert.Equal(t, "Human", profile.RaceName)
-	assert.Equal(t, 15, profile.Strength)
-	assert.Equal(t, 12, profile.Dexterity)
-	assert.Equal(t, 18, profile.Intelligence)
+	assert.Equal(t, 15, profile.Stats["Fuerza"])
+	assert.Equal(t, 12, profile.Stats["Destreza"])
+	assert.Equal(t, 18, profile.Stats["Inteligencia"])
 }
 
 func TestGetProfile_NotFound(t *testing.T) {
@@ -115,9 +123,7 @@ func TestGetProfile_WithNullStats(t *testing.T) {
 	assert.Equal(t, character.ID, profile.ID)
 	assert.Equal(t, "Legolas", profile.Name)
 	assert.Equal(t, "Elf", profile.RaceName)
-	assert.Equal(t, 0, profile.Strength)
-	assert.Equal(t, 0, profile.Dexterity)
-	assert.Equal(t, 0, profile.Intelligence)
+	assert.Empty(t, profile.Stats)
 }
 
 func TestDelete_Cascade(t *testing.T) {
@@ -132,13 +138,15 @@ func TestDelete_Cascade(t *testing.T) {
 	}
 	require.NoError(t, repo.Create(ctx, character))
 
-	stats := &domain.CharacterStat{
-		CharacterID:  character.ID,
-		Strength:     10,
-		Dexterity:    8,
-		Intelligence: 20,
+	stat := &domain.Stat{Name: "Fuerza"}
+	require.NoError(t, db.Create(stat).Error)
+
+	charStat := &domain.CharacterStat{
+		CharacterID: character.ID,
+		StatID:      stat.ID,
+		Value:       10,
 	}
-	require.NoError(t, db.Create(stats).Error)
+	require.NoError(t, db.Create(charStat).Error)
 
 	err := repo.Delete(ctx, character.ID)
 	require.NoError(t, err)
