@@ -85,10 +85,10 @@ func TestGenericGetByID_Success(t *testing.T) {
 func TestGenericCreate_Success(t *testing.T) {
 	_, _, handler := setupGenericTestAPI(t)
 
-	input := map[string]interface{}{
-		"name":    "Aldric",
-		"age":     30,
-		"race_id": 1,
+	input := domain.Character{
+		Name:   "Aldric",
+		Age:    30,
+		RaceID: 1,
 	}
 	rec := doGenericRequest(t, handler, http.MethodPost, "/characters", input)
 
@@ -107,11 +107,11 @@ func TestGenericUpdate_Success(t *testing.T) {
 	character := &domain.Character{Name: "Aldric", Age: 30, RaceID: 1}
 	require.NoError(t, db.WithContext(ctx).Create(character).Error)
 
-	input := map[string]interface{}{
-		"id":      1,
-		"name":    "Aldric the Wise",
-		"age":     31,
-		"race_id": 2,
+	input := domain.Character{
+		ID:     1,
+		Name:   "Aldric the Wise",
+		Age:    31,
+		RaceID: 2,
 	}
 	rec := doGenericRequest(t, handler, http.MethodPut, "/characters/1", input)
 
@@ -125,11 +125,11 @@ func TestGenericUpdate_Success(t *testing.T) {
 func TestGenericUpdate_NotFound(t *testing.T) {
 	_, _, handler := setupGenericTestAPI(t)
 
-	input := map[string]interface{}{
-		"id":      999,
-		"name":    "Nobody",
-		"age":     30,
-		"race_id": 1,
+	input := domain.Character{
+		ID:     999,
+		Name:   "Nobody",
+		Age:    30,
+		RaceID: 1,
 	}
 	rec := doGenericRequest(t, handler, http.MethodPut, "/characters/999", input)
 

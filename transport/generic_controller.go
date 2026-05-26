@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"motor-de-rol/backend/domain"
@@ -14,13 +13,13 @@ type GenericIDInput struct {
 	ID uint `path:"id" minimum:"1" doc:"ID único del recurso"`
 }
 
-type GenericCreateBodyInput struct {
-	Body map[string]any `doc:"Datos del recurso a crear"`
+type GenericCreateInput[T any] struct {
+	Body T
 }
 
-type GenericUpdateBodyInput struct {
+type GenericUpdateInput[T any] struct {
 	GenericIDInput
-	Body map[string]any `doc:"Datos del recurso a actualizar"`
+	Body T
 }
 
 func RegisterGenericCRUDL[T any](api huma.API, repo domain.Repository[T], basePath string, groupTag string) {
@@ -50,20 +49,15 @@ func RegisterGenericCRUDL[T any](api huma.API, repo domain.Repository[T], basePa
 		Path:        "/" + basePath,
 		Summary:     "Create a new " + resourceName,
 		Tags:        []string{groupTag},
-	}, func(ctx context.Context, input *GenericCreateBodyInput) (*struct {
+	}, func(ctx context.Context, input *GenericCreateInput[T]) (*struct {
 		Body T
 	}, error) {
-		var entity T
-		data, _ := json.Marshal(input.Body)
-		if err := json.Unmarshal(data, &entity); err != nil {
-			return nil, huma.Error422UnprocessableEntity("invalid request body", err)
-		}
-		if err := repo.Create(ctx, &entity); err != nil {
+		if err := repo.Create(ctx, &input.Body); err != nil {
 			return nil, huma.Error500InternalServerError("failed to create record", err)
 		}
 		return &struct {
 			Body T
-		}{Body: entity}, nil
+		}{Body: input.Body}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -90,23 +84,18 @@ func RegisterGenericCRUDL[T any](api huma.API, repo domain.Repository[T], basePa
 		Path:        "/" + basePath + "/{id}",
 		Summary:     "Update " + resourceName,
 		Tags:        []string{groupTag},
-	}, func(ctx context.Context, input *GenericUpdateBodyInput) (*struct {
+	}, func(ctx context.Context, input *GenericUpdateInput[T]) (*struct {
 		Body T
 	}, error) {
 		if _, err := repo.GetByID(ctx, input.ID); err != nil {
 			return nil, huma.Error404NotFound("record not found", err)
 		}
-		var entity T
-		data, _ := json.Marshal(input.Body)
-		if err := json.Unmarshal(data, &entity); err != nil {
-			return nil, huma.Error422UnprocessableEntity("invalid request body", err)
-		}
-		if err := repo.Update(ctx, &entity); err != nil {
+		if err := repo.Update(ctx, &input.Body); err != nil {
 			return nil, huma.Error500InternalServerError("failed to update record", err)
 		}
 		return &struct {
 			Body T
-		}{Body: entity}, nil
+		}{Body: input.Body}, nil
 	})
 
 	huma.Register(api, huma.Operation{
