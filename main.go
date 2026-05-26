@@ -83,7 +83,7 @@ func main() {
 }
 
 func printBanner() {
-	fmt.Println(`
+	fmt.Print(`
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
 ║           MOTOR DE ROL - API SERVER                      ║
