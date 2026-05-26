@@ -24,7 +24,7 @@ func setupTestAPI(t *testing.T) (*gorm.DB, *repository.SQLiteCharacterRepo, http
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.CharacterStat{})
+	err = db.AutoMigrate(&domain.Character{}, &domain.Race{}, &domain.Stat{}, &domain.CharacterStat{})
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
@@ -229,13 +229,21 @@ func TestGetProfile_Success(t *testing.T) {
 	}
 	require.NoError(t, db.WithContext(ctx).Create(character).Error)
 
-	stats := &domain.CharacterStat{
-		CharacterID:  character.ID,
-		Strength:     15,
-		Dexterity:    12,
-		Intelligence: 18,
+	statStr := &domain.Stat{Name: "Fuerza"}
+	statDex := &domain.Stat{Name: "Destreza"}
+	statInt := &domain.Stat{Name: "Inteligencia"}
+	require.NoError(t, db.WithContext(ctx).Create(statStr).Error)
+	require.NoError(t, db.WithContext(ctx).Create(statDex).Error)
+	require.NoError(t, db.WithContext(ctx).Create(statInt).Error)
+
+	stats := []domain.CharacterStat{
+		{CharacterID: character.ID, StatID: statStr.ID, Value: 15},
+		{CharacterID: character.ID, StatID: statDex.ID, Value: 12},
+		{CharacterID: character.ID, StatID: statInt.ID, Value: 18},
 	}
-	require.NoError(t, db.WithContext(ctx).Create(stats).Error)
+	for i := range stats {
+		require.NoError(t, db.WithContext(ctx).Create(&stats[i]).Error)
+	}
 
 	rec := doRequest(t, handler, http.MethodGet, "/characters/1/profile", nil)
 
@@ -244,9 +252,9 @@ func TestGetProfile_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &profile))
 	assert.Equal(t, "Aldric", profile.Name)
 	assert.Equal(t, "Human", profile.RaceName)
-	assert.Equal(t, 15, profile.Strength)
-	assert.Equal(t, 12, profile.Dexterity)
-	assert.Equal(t, 18, profile.Intelligence)
+	assert.Equal(t, 15, profile.Stats["Fuerza"])
+	assert.Equal(t, 12, profile.Stats["Destreza"])
+	assert.Equal(t, 18, profile.Stats["Inteligencia"])
 }
 
 func TestGetProfile_NotFound(t *testing.T) {

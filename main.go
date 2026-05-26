@@ -32,6 +32,7 @@ func main() {
 	}
 
 	characterRepo := repository.NewSQLiteCharacterRepo(database)
+	charIdentityRepo := repository.NewSQLiteCharacterIdentityRepo(database)
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
@@ -41,6 +42,9 @@ func main() {
 
 	characterController := transport.NewCharacterController(characterRepo)
 	characterController.Register(api)
+
+	charIdentityController := transport.NewCharacterIdentityController(charIdentityRepo)
+	charIdentityController.Register(api)
 
 	printBanner()
 

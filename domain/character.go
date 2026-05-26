@@ -17,14 +17,24 @@ type Character struct {
 	RaceID uint   `json:"race_id"`
 }
 
+type Stat struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+type CharacterStat struct {
+	ID          uint `json:"id"`
+	CharacterID uint `json:"character_id"`
+	StatID      uint `json:"stat_id"`
+	Value       int  `json:"value"`
+}
+
 type CharacterProfile struct {
-	ID              uint   `json:"id"`
-	Name            string `json:"name"`
-	Age             int    `json:"age"`
-	RaceName        string `json:"race_name"`
-	Strength        int    `json:"strength"`
-	Dexterity       int    `json:"dexterity"`
-	Intelligence    int    `json:"intelligence"`
+	ID       uint            `json:"id"`
+	Name     string          `json:"name"`
+	Age      int             `json:"age"`
+	RaceName string          `json:"race_name"`
+	Stats    map[string]int  `json:"stats"`
 }
 
 type CharacterRepository interface {
@@ -35,12 +45,4 @@ type CharacterRepository interface {
 type Race struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
-}
-
-type CharacterStat struct {
-	ID           uint `json:"id"`
-	CharacterID  uint `json:"character_id"`
-	Strength     int  `json:"strength"`
-	Dexterity    int  `json:"dexterity"`
-	Intelligence int  `json:"intelligence"`
 }
