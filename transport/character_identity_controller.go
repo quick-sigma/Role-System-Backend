@@ -23,6 +23,7 @@ func (c *CharacterIdentityController) Register(api huma.API) {
 		Method:      http.MethodPost,
 		Path:        "/characters/full",
 		Summary:     "Create a full character with avatar, attributes, stats, and skills",
+		Tags:        []string{"Character Identity"},
 	}, c.CreateFullCharacter)
 
 	huma.Register(api, huma.Operation{
@@ -30,6 +31,7 @@ func (c *CharacterIdentityController) Register(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/characters/{id}/sheet",
 		Summary:     "Get the full character sheet consolidated",
+		Tags:        []string{"Character Identity"},
 	}, c.GetFullCharacterSheet)
 
 	huma.Register(api, huma.Operation{
@@ -37,6 +39,7 @@ func (c *CharacterIdentityController) Register(api huma.API) {
 		Method:      http.MethodDelete,
 		Path:        "/characters/{id}",
 		Summary:     "Delete a character and all its dependencies",
+		Tags:        []string{"Character Identity"},
 	}, c.DeleteCharacter)
 }
 

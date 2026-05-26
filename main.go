@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"motor-de-rol/backend/db"
+	"motor-de-rol/backend/domain"
 	"motor-de-rol/backend/repository"
 	"motor-de-rol/backend/transport"
 
@@ -31,7 +32,9 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	characterRepo := repository.NewSQLiteCharacterRepo(database)
+	charRepo := repository.NewSQLiteRepository[domain.Character](database)
+	raceRepo := repository.NewSQLiteRepository[domain.Race](database)
+	statRepo := repository.NewSQLiteRepository[domain.Stat](database)
 	charIdentityRepo := repository.NewSQLiteCharacterIdentityRepo(database)
 
 	router := chi.NewRouter()
@@ -40,8 +43,9 @@ func main() {
 
 	api := humachi.New(router, huma.DefaultConfig("Motor de Rol API", "1.0.0"))
 
-	characterController := transport.NewCharacterController(characterRepo)
-	characterController.Register(api)
+	transport.RegisterGenericCRUDL[domain.Character](api, charRepo, "characters", "Characters")
+	transport.RegisterGenericCRUDL[domain.Race](api, raceRepo, "races", "Races")
+	transport.RegisterGenericCRUDL[domain.Stat](api, statRepo, "stats", "Stats")
 
 	charIdentityController := transport.NewCharacterIdentityController(charIdentityRepo)
 	charIdentityController.Register(api)
